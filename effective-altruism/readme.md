@@ -16,7 +16,7 @@ code tested with ChromeDriver 2.35
 
 place executable in ./selenium_drivers folder
 
-2. python Libraries
+2. python libraries
 - selenium
 - beautifulsoup
 - pandas
