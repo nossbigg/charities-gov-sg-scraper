@@ -16,8 +16,8 @@ SELENIUM_CHROME_DRIVER_PATH = './selenium_drivers/chromedriver'
 CHARITIES_GOV_SG_URL = \
     'https://www.charities.gov.sg/_layouts/MCYSCPSearch/MCYSCPSearchCriteriaPage.aspx'
 
-REGISTERED_CHARITIES_JSON_DUMP_PATH = './data/charitiesgovsg.json'
-REGISTERED_CHARITIES_CSV_DUMP_PATH = './data/charitiesgovsg.csv'
+REGISTERED_CHARITIES_JSON_DUMP_PATH = '../data/charitiesgovsg.json'
+REGISTERED_CHARITIES_CSV_DUMP_PATH = '../data/charitiesgovsg.csv'
 CSV_DELIMITER = "|"
 
 
