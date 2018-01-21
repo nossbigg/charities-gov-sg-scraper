@@ -65,6 +65,3 @@ class CafaExtractor:
                   sep=CSV_DELIMITER,
                   index=False,
                   encoding='utf-8')
-
-
-CafaExtractor().do_scrape()
