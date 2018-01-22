@@ -11,7 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
-SELENIUM_CHROME_DRIVER_PATH = './selenium_drivers/chromedriver'
+SELENIUM_CHROME_DRIVER_PATH = '../selenium_drivers/chromedriver'
 
 CHARITIES_GOV_SG_URL = \
     'https://www.charities.gov.sg/_layouts/MCYSCPSearch/MCYSCPSearchCriteriaPage.aspx'
