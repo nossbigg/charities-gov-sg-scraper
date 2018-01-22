@@ -36,14 +36,9 @@ class CharitiesGovSgExtractor:
     def scrape_registered_charities(self, browser):
         page_tables = []
 
-        browser.get(CHARITIES_GOV_SG_URL)
+        self.go_to_search_results_first_page(browser)
 
-        search_button_xpath = '//*[@id="ctl00_PlaceHolderMain_btnSearch"]'
-        self.move_to_and_click_element(browser, search_button_xpath)
-
-        self.wait_for_page_load(browser)
         current_page = self.get_current_page(browser)
-
         expected_pages = self.get_expected_pages(browser)
         print('Expected pages: ' + str(expected_pages))
 
@@ -59,11 +54,10 @@ class CharitiesGovSgExtractor:
             self.wait_for_page_load(browser)
             current_page = self.get_current_page(browser)
 
-        charities_unflattened = [self.extract_charities(page_table) for page_table in page_tables]
-        charities = list(itertools.chain.from_iterable(charities_unflattened))
-
         if current_page < expected_pages:
             print('Warning: Did not reach last page')
+
+        charities = self.parse_charities_from_page_tables(page_tables)
 
         return charities
 
@@ -123,6 +117,11 @@ class CharitiesGovSgExtractor:
                     'value'].strip()
         }
 
+    def parse_charities_from_page_tables(self, page_tables):
+        charities_unflattened = [self.extract_charities(page_table) for page_table in page_tables]
+        charities = list(itertools.chain.from_iterable(charities_unflattened))
+        return charities
+
     # HELPER FUNCTIONS
     def go_to_next_page(self, browser, current_page):
         back_to_top_xpath = '//*[@id="backToTop"]'
@@ -165,6 +164,14 @@ class CharitiesGovSgExtractor:
         expected_pages = math.ceil(total_records / results_per_page)
 
         return int(expected_pages)
+
+    def go_to_search_results_first_page(self, browser):
+        browser.get(CHARITIES_GOV_SG_URL)
+
+        search_button_xpath = '//*[@id="ctl00_PlaceHolderMain_btnSearch"]'
+        self.move_to_and_click_element(browser, search_button_xpath)
+
+        self.wait_for_page_load(browser)
 
     @staticmethod
     def wait_for_page_load(browser):
