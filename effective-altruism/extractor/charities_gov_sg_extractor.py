@@ -1,9 +1,9 @@
+import csv
 import itertools
 import json
 import math
 import re
 
-import pandas as pd
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
@@ -18,7 +18,6 @@ CHARITIES_GOV_SG_URL = \
 
 REGISTERED_CHARITIES_JSON_DUMP_PATH = '../data/charitiesgovsg.json'
 REGISTERED_CHARITIES_CSV_DUMP_PATH = '../data/charitiesgovsg.csv'
-CSV_DELIMITER = "|"
 
 
 class CharitiesGovSgExtractor:
@@ -30,8 +29,14 @@ class CharitiesGovSgExtractor:
             chrome_options=chrome_options)
 
         registered_charities = self.scrape_registered_charities(browser)
-        self.write_list_as_json_to_file(REGISTERED_CHARITIES_JSON_DUMP_PATH, registered_charities)
-        self.write_list_as_csv_to_file(REGISTERED_CHARITIES_CSV_DUMP_PATH, registered_charities)
+
+        charities_columns_standardized \
+            = self.convert_to_standardized_columns(registered_charities)
+
+        self.write_list_as_json_to_file(
+            REGISTERED_CHARITIES_JSON_DUMP_PATH, charities_columns_standardized)
+        self.write_list_as_csv_to_file(
+            REGISTERED_CHARITIES_CSV_DUMP_PATH, charities_columns_standardized)
 
     def scrape_registered_charities(self, browser):
         page_tables = []
@@ -76,7 +81,11 @@ class CharitiesGovSgExtractor:
         matched_charities_tag = soup.find_all('tr', id=charity_tr_class)
         for index in range(0, len(matched_charities_tag)):
             charity_tr_tag = matched_charities_tag[index]
-            charities.append(self.extract_charity_from_tr(charity_tr_tag, index))
+
+            charity = self.extract_charity_from_tr(charity_tr_tag, index)
+            charity['country'] = 'Singapore'
+
+            charities.append(charity)
 
         return charities
 
@@ -116,6 +125,14 @@ class CharitiesGovSgExtractor:
                                     id='ctl00_PlaceHolderMain_lstSearchResults_ctrl' + index + '_hfViewDetails')[
                     'value'].strip()
         }
+
+    @staticmethod
+    def convert_to_standardized_columns(charities):
+        for charity in charities:
+            charity['name'] = charity.pop('Name of Organization')
+            charity['address'] = charity.pop('Address')
+            charity['cause_area'] = charity.pop('Primary sector')
+        return charities
 
     def parse_charities_from_page_tables(self, page_tables):
         charities_unflattened = [self.extract_charities(page_table) for page_table in page_tables]
@@ -203,8 +220,10 @@ class CharitiesGovSgExtractor:
 
     @staticmethod
     def write_list_as_csv_to_file(filepath, list_of_dicts):
-        df = pd.DataFrame(list_of_dicts)
-        df.to_csv(filepath,
-                  sep=CSV_DELIMITER,
-                  index=False,
-                  encoding='utf-8')
+        with open(filepath, mode='w', newline="\n") as csv_file:
+            fieldnames = list_of_dicts[0].keys()
+            csv_file_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            csv_file_writer.writeheader()
+            for charity in list_of_dicts:
+                csv_file_writer.writerow(charity)

@@ -1,7 +1,7 @@
+import csv
 import itertools
 import json
 
-import pandas as pd
 import urllib3
 
 CAFA_API_URL = \
@@ -10,7 +10,6 @@ CAFA_API_URL = \
 
 CAFA_JSON_DUMP_PATH = '../data/cafa.json'
 CAFA_CSV_DUMP_PATH = '../data/cafa.csv'
-CSV_DELIMITER = "|"
 
 
 class CafaExtractor:
@@ -25,8 +24,10 @@ class CafaExtractor:
 
         charities = list(itertools.chain.from_iterable(charities_unflattened))
 
-        self.write_list_as_json_to_file(CAFA_JSON_DUMP_PATH, charities)
-        self.write_list_as_csv_to_file(CAFA_CSV_DUMP_PATH, charities)
+        charities_column_names_standardized = self.convert_to_standardized_columns(charities)
+
+        self.write_list_as_json_to_file(CAFA_JSON_DUMP_PATH, charities_column_names_standardized)
+        self.write_list_as_csv_to_file(CAFA_CSV_DUMP_PATH, charities_column_names_standardized)
 
     def get_number_of_charities(self):
         query_parameters = self.generate_default_query_parameters()
@@ -40,6 +41,13 @@ class CafaExtractor:
         request = self.http.request('POST', CAFA_API_URL, fields=query_parameters)
         request_json = json.loads(request.data)
         return request_json['Data']
+
+    @staticmethod
+    def convert_to_standardized_columns(charities):
+        for charity in charities:
+            charity['name'] = charity.pop('Name')
+            charity['cause_area'] = charity.pop('FieldsOfInterest')
+        return charities
 
     @staticmethod
     def generate_default_query_parameters():
@@ -60,8 +68,10 @@ class CafaExtractor:
 
     @staticmethod
     def write_list_as_csv_to_file(filepath, list_of_dicts):
-        df = pd.DataFrame(list_of_dicts)
-        df.to_csv(filepath,
-                  sep=CSV_DELIMITER,
-                  index=False,
-                  encoding='utf-8')
+        with open(filepath, mode='w', newline="\n") as csv_file:
+            fieldnames = list_of_dicts[0].keys()
+            csv_file_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            csv_file_writer.writeheader()
+            for charity in list_of_dicts:
+                csv_file_writer.writerow(charity)
