@@ -44,9 +44,15 @@ class CafaExtractor:
 
     @staticmethod
     def convert_to_standardized_columns(charities):
+        columns_to_remove = ["Id", "Nickname", "DetailsDispatch", "DagDispatch", "GrantDispatch"]
+
         for charity in charities:
             charity['name'] = charity.pop('Name')
             charity['cause_area'] = charity.pop('FieldsOfInterest')
+
+            for column_name_to_remove in columns_to_remove:
+                del charity[column_name_to_remove]
+
         return charities
 
     @staticmethod

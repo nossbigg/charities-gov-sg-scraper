@@ -128,10 +128,18 @@ class CharitiesGovSgExtractor:
 
     @staticmethod
     def convert_to_standardized_columns(charities):
+        columns_to_remove = ["UEN No", "Charity Status", "Date of Charity Registration",
+                             "IPC Status", "IPC Period", "Details URL"]
+
         for charity in charities:
             charity['name'] = charity.pop('Name of Organization')
             charity['address'] = charity.pop('Address')
             charity['cause_area'] = charity.pop('Primary sector')
+            charity['website'] = charity.pop('Website')
+
+            for column_name_to_remove in columns_to_remove:
+                del charity[column_name_to_remove]
+
         return charities
 
     def parse_charities_from_page_tables(self, page_tables):
