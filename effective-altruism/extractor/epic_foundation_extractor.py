@@ -1,0 +1,152 @@
+import csv
+import itertools
+import json
+import re
+from string import Template
+
+import urllib3
+from bs4 import BeautifulSoup
+
+EPIC_FOUNDATION_CHARITIES_URL = \
+    'https://epic.foundation/inside-epic/portfolio-organizations'
+
+EPIC_FOUNDATION_CSV_DUMP_PATH = '../data/epicfoundation.csv'
+EPIC_FOUNDATION_JSON_DUMP_PATH = '../data/epicfoundation.json'
+
+
+class EpicFoundationExtractor:
+    http = urllib3.PoolManager()
+
+    def do_scrape(self):
+        charities = self.get_charities()
+        charities_with_details = self.get_charities_detailed(charities)
+
+        charities_column_names_standardized = self.convert_to_standardized_columns(
+            charities_with_details)
+
+        self.write_list_as_json_to_file(EPIC_FOUNDATION_JSON_DUMP_PATH,
+                                        charities_column_names_standardized)
+        self.write_list_as_csv_to_file(EPIC_FOUNDATION_CSV_DUMP_PATH,
+                                       charities_column_names_standardized)
+
+    def get_charities(self):
+        request = self.http.request('GET', EPIC_FOUNDATION_CHARITIES_URL)
+        request_html_body = request.data.decode("UTF-8")
+
+        soup = BeautifulSoup(request_html_body, 'html.parser')
+
+        charities_container = soup.find("div", class_="org-browser")
+        if charities_container is None:
+            return []
+
+        charities_elements = charities_container.find_all("div", recursive=False)
+        charities = [{"data-link": charity_div['data-link']} for charity_div in charities_elements]
+
+        return charities
+
+    def get_charities_detailed(self, charities):
+        return [{**charity, **self.get_charity_detailed_page(charity)}
+                for charity in charities]
+
+    def get_charity_detailed_page(self, charity):
+        charity_data_link = charity['data-link']
+        charity_detailed_page_url = self.generate_charity_details_url(charity_data_link)
+
+        request = self.http.request('GET', charity_detailed_page_url)
+        request_html_body = request.data.decode("UTF-8")
+
+        return self.get_charity_details_from_page_html(request_html_body)
+
+    def get_charity_details_from_page_html(self, request_html_body):
+        soup = BeautifulSoup(request_html_body, 'html.parser')
+
+        charity_details = {
+            **self.get_country_and_location(soup),
+            **self.get_quote(soup),
+            **self.get_intro(soup),
+            **self.get_challenges(soup),
+        }
+
+        return charity_details
+
+    @staticmethod
+    def convert_to_standardized_columns(charities):
+        return charities
+
+    @staticmethod
+    def get_country_and_location(soup):
+        location_element = soup.find("span", {"lang": "en"}, class_="org-location")
+        country_element = soup.find("span", {"lang": "en"}, class_="org-country")
+
+        return {
+            "org-location": location_element.text,
+            "org-country": country_element.text,
+        }
+
+    @staticmethod
+    def get_quote(soup):
+        org_presentation_element = soup.find("div", class_="org-presentation")
+        if org_presentation_element is None:
+            return {}
+
+        quote_element = org_presentation_element.find('span', {"lang": "en"})
+        quote = quote_element.text
+        quote = re.sub("[\r\n]", " ", quote)
+        return {'org-quote': quote}
+
+    @staticmethod
+    def get_intro(soup):
+        org_intro_element = soup.find("div", class_="org-intro")
+        if org_intro_element is None:
+            return {}
+
+        p_elements = org_intro_element.find_all('p', {"lang": "en"})
+        org_intro = " ".join([p.string for p in p_elements])
+        org_intro = re.sub("[\r\n]", " ", org_intro)
+
+        return {'org-intro': org_intro}
+
+    @staticmethod
+    def get_challenges(soup):
+        challenge_element = soup.find("div", class_="challenge-description")
+        if challenge_element is None:
+            return {}
+
+        facts = []
+
+        fact_elements = challenge_element.find_all('div', recursive=False)
+        for fact_element in fact_elements:
+            spans = fact_element.find_all('span', {"lang": "en"})
+            fact_string = ", ".join([span.text for span in spans
+                                     if len(span.text) > 0])
+            facts.append(fact_string)
+
+        facts_string = "; ".join(facts)
+        facts_string = re.sub("[\r\n]", " ", facts_string)
+
+        return {'challenge-description': facts_string}
+
+    @staticmethod
+    def generate_charity_details_url(data_link):
+        charity_details_url_template = Template(
+            'https://epic.foundation/inside-epic/portfolio/$data_link')
+        return charity_details_url_template.substitute(data_link=data_link)
+
+    @staticmethod
+    def get_all_possible_fieldnames(list_of_dicts):
+        keys_flattened = list(itertools.chain.from_iterable(list_of_dicts))
+        return set(keys_flattened)
+
+    @staticmethod
+    def write_list_as_json_to_file(filepath, list_of_dicts):
+        with open(filepath, 'w') as file_out:
+            json.dump(list_of_dicts, file_out)
+
+    def write_list_as_csv_to_file(self, filepath, list_of_dicts):
+        with open(filepath, mode='w', newline="\n") as csv_file:
+            fieldnames = self.get_all_possible_fieldnames(list_of_dicts)
+            csv_file_writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            csv_file_writer.writeheader()
+            for charity in list_of_dicts:
+                csv_file_writer.writerow(charity)
