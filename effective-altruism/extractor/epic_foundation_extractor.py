@@ -65,6 +65,8 @@ class EpicFoundationExtractor:
             **self.get_quote(soup),
             **self.get_intro(soup),
             **self.get_challenges(soup),
+            **self.get_key_facts(soup),
+            **self.get_key_programs(soup),
         }
 
         return charity_details
@@ -125,6 +127,55 @@ class EpicFoundationExtractor:
         facts_string = re.sub("[\r\n]", " ", facts_string)
 
         return {'challenge-description': facts_string}
+
+    @staticmethod
+    def get_key_facts(soup):
+        key_facts_container_element = soup.find("div", class_="org-details")
+        if key_facts_container_element is None:
+            return {}
+
+        facts = {}
+
+        fact_elements = key_facts_container_element.find_all('div', recursive=False)
+        for fact_element in fact_elements:
+            spans = fact_element.find_all('span', {"lang": "en"})
+
+            if len(spans) != 2:
+                fact_field = 'fact-unknown'
+                value = spans[0].text
+                facts[fact_field] = value
+                continue
+
+            fact_field = "fact-" + spans[0].text
+            fact_value = spans[1].text
+            facts[fact_field] = fact_value
+
+        return facts
+
+    @staticmethod
+    def get_key_programs(soup):
+        programs_container_element = soup.find("div", class_="org-programs-description-wrapper")
+        if programs_container_element is None:
+            return {}
+
+        programs = []
+
+        program_elements = programs_container_element.find_all(
+            'div', class_="org-programs-description", recursive=False)
+        for program_element in program_elements:
+            program_header_element = program_element.find('span', {"lang": "en"})
+            program_header_text = program_header_element.text \
+                if program_header_element is not None \
+                else ""
+
+            paragraphs = program_element.find_all('p', {"lang": "en"})
+            program_text = " ".join([p.text for p in paragraphs
+                                    if len(p.text) > 0])
+            program_text = re.sub("[\r\n]", " ", program_text)
+
+            programs.append({program_header_text: program_text})
+
+        return {'challenge-description': programs}
 
     @staticmethod
     def generate_charity_details_url(data_link):
