@@ -61,6 +61,7 @@ class EpicFoundationExtractor:
         soup = BeautifulSoup(request_html_body, 'html.parser')
 
         charity_details = {
+            'org-name': soup.find('h2', class_="org-name").text,
             **self.get_country_and_location(soup),
             **self.get_quote(soup),
             **self.get_intro(soup),
@@ -71,8 +72,28 @@ class EpicFoundationExtractor:
 
         return charity_details
 
-    @staticmethod
-    def convert_to_standardized_columns(charities):
+    def convert_to_standardized_columns(self, charities):
+        columns_to_keep = ["location", "country", "name", "cause_area", "description"]
+
+        for charity in charities:
+            charity['location'] = charity.get('org-location', '')
+            charity['country'] = charity.get('org-country', '')
+            charity['name'] = charity.get('org-name', '')
+            charity['cause_area'] = charity.get('fact-Sectors', '')
+
+            challenge_descriptions = charity.get('challenge-description', ' ')
+            challenge_description \
+                = self.convert_challenge_descriptions_to_string(challenge_descriptions)
+
+            charity['description'] \
+                = charity.get('org-intro', ' ') + "; " \
+                  + charity.get('org-quote', ' ') + "; " \
+                  + challenge_description
+
+            for column_name in list(charity.keys()):
+                if column_name not in columns_to_keep:
+                    del charity[column_name]
+
         return charities
 
     @staticmethod
@@ -170,12 +191,23 @@ class EpicFoundationExtractor:
 
             paragraphs = program_element.find_all('p', {"lang": "en"})
             program_text = " ".join([p.text for p in paragraphs
-                                    if len(p.text) > 0])
+                                     if len(p.text) > 0])
             program_text = re.sub("[\r\n]", " ", program_text)
 
             programs.append({program_header_text: program_text})
 
         return {'challenge-description': programs}
+
+    @staticmethod
+    def convert_challenge_descriptions_to_string(challenge_descriptions):
+        challenge_descriptions_flattened = []
+
+        for challenge in challenge_descriptions:
+            for challenge_title in challenge.keys():
+                challenge_content = challenge[challenge_title]
+                challenge_descriptions_flattened.append(challenge_title + ": " + challenge_content)
+
+        return "; ".join(challenge_descriptions_flattened)
 
     @staticmethod
     def generate_charity_details_url(data_link):
