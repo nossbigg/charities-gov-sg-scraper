@@ -1,10 +1,12 @@
 import csv
 import itertools
 import json
+import math
 
 import urllib3
 
 ONEWORLD365_API_URL = 'http://api.oneworld365.org/search/volunteer'
+ONEWORLD365_API_MAX_PAGINATION_SIZE = 999
 
 ONEWORLD365_CSV_DUMP_PATH = '../data/oneworld365.csv'
 ONEWORLD365_JSON_DUMP_PATH = '../data/oneworld365.json'
@@ -27,21 +29,29 @@ class OneWorld365Extractor:
     def get_charities(self):
         number_of_charities = self.get_number_of_charities()
 
-        charities_raw = self.get_charities_json_from_api(number_of_charities)
-        charities = charities_raw['data']['profile']
-
+        charities = self.get_charities_json_from_api(number_of_charities)
         return charities
 
     def get_number_of_charities(self):
-        request_json = self.call_charities_api(1)
+        request_json = self.call_charities_api(0, 1)
 
         return request_json['total_results']
 
-    def get_charities_json_from_api(self, count):
-        return self.call_charities_api(count)
+    def get_charities_json_from_api(self, number_of_charities):
+        api_start_indexes \
+            = range(0, math.ceil(number_of_charities / ONEWORLD365_API_MAX_PAGINATION_SIZE) + 1)
 
-    def call_charities_api(self, count=1):
-        query_parameters = self.generate_search_api_query_parameters(count)
+        charities_calls \
+            = [self.call_charities_api(start_index, ONEWORLD365_API_MAX_PAGINATION_SIZE)
+               for start_index in api_start_indexes]
+
+        charities = [charity_call['data']['profile'] for charity_call in charities_calls]
+        charities = list(itertools.chain.from_iterable(charities))
+
+        return charities
+
+    def call_charities_api(self, start=0, count=1):
+        query_parameters = self.generate_search_api_query_parameters(start, count)
         request = self.http.request('GET', ONEWORLD365_API_URL, fields=query_parameters)
 
         request_raw_response = request.data.decode("utf-8").strip()
@@ -51,9 +61,9 @@ class OneWorld365Extractor:
         return request_json
 
     @staticmethod
-    def generate_search_api_query_parameters(search_size):
+    def generate_search_api_query_parameters(start, search_size):
         return {
-            'start': 0,
+            'start': start,
             'rows': search_size,
             'fq0': 'profile_type:0',
             '0': 0,
