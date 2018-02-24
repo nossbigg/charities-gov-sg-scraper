@@ -2,6 +2,7 @@ import csv
 import itertools
 import json
 import math
+import re
 
 import urllib3
 
@@ -72,6 +73,17 @@ class OneWorld365Extractor:
 
     @staticmethod
     def convert_to_standardized_columns(charities):
+        columns_to_keep = ["name", "description"]
+
+        for charity in charities:
+            charity['name'] = charity.get('title', '')
+            charity['website'] = charity.get('profile_url', '')
+            charity['description'] = re.sub("[\n\r\t]", " ", charity.get('desc_short', ''))
+
+            for column_name in list(charity.keys()):
+                if column_name not in columns_to_keep:
+                    del charity[column_name]
+
         return charities
 
     @staticmethod
