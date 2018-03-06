@@ -21,11 +21,13 @@ class GlobalGivingExtractor:
 
         charities_column_names_standardized = self.convert_to_standardized_columns(
             charities)
+        charities_with_merged_programs = \
+            self.merge_programs_from_common_charities(charities_column_names_standardized)
 
         self.write_list_as_json_to_file(GLOBALGIVING_JSON_DUMP_PATH,
-                                        charities_column_names_standardized)
+                                        charities_with_merged_programs)
         self.write_list_as_csv_to_file(GLOBALGIVING_CSV_DUMP_PATH,
-                                       charities_column_names_standardized)
+                                       charities_with_merged_programs)
 
     def get_charities(self):
         number_of_charities = self.get_number_of_charities()
@@ -96,6 +98,30 @@ class GlobalGivingExtractor:
                     del charity[column_name]
 
         return charities
+
+    @staticmethod
+    def merge_programs_from_common_charities(charities_column_names_standardized):
+        charities_merged = {}
+
+        for charity in charities_column_names_standardized:
+            charity_name = charity['name']
+
+            if charity_name not in charities_merged:
+                charities_merged[charity_name] = charity
+                continue
+
+            existing_charity = charities_merged[charity_name]
+
+            merged_charity = {
+                'name': existing_charity['name'],
+                'country': existing_charity['country'] + ", " + charity['country'],
+                'description': existing_charity['description'] + ", " + charity['description'],
+                'cause_area': existing_charity['cause_area'] + ", " + charity['cause_area'],
+            }
+
+            charities_merged[charity_name] = merged_charity
+
+        return list(charities_merged.values())
 
     @staticmethod
     def get_all_possible_fieldnames(list_of_dicts):
